@@ -10,10 +10,11 @@ break_prog = False
 def parseArgs():
     import argparse
     p = argparse.ArgumentParser(__doc__)
+    p.add_argument('aprilTagPath', help="Path to .json file with AprilTag ids, sizes and poses")
     p.add_argument("--useRgb", help="Use OAK-D RGB camera", action="store_true")
     p.add_argument('--irDotBrightness', help='OAK-D Pro (W) IR laser projector brightness (mA), 0 - 1200', type=float, default=0)
     p.add_argument('--noFeatureTracker', help='Disable on-device feature tracking and depth map', action="store_true")
-    p.add_argument('--map', help='Map file to load', default=None)
+    p.add_argument('--load-map', help='Map file to load', default=None)
     p.add_argument('--save-map', help='Map file to save', default=None)
     p.add_argument("--useRectification", help="This parameter must be set if the stereo video inputs are not rectified", action="store_true")
     p.add_argument('--keyFrameCandidateInterval', type=int, help='Sets internal parameter keyframeCandidateEveryNthFrame')
@@ -47,6 +48,7 @@ if __name__ == '__main__':
         pipeline = depthai.Pipeline()
         config = spectacularAI.depthai.Configuration()
         config.useFeatureTracker = not args.noFeatureTracker
+        config.aprilTagPath = args.aprilTagPath
 
         config.useSlam = True
         #config.lowLatency = True
