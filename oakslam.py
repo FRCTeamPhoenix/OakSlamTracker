@@ -10,10 +10,11 @@ break_prog = False
 def parseArgs():
     import argparse
     p = argparse.ArgumentParser(__doc__)
-    p.add_argument('aprilTagPath', help="Path to .json file with AprilTag ids, sizes and poses")
+    p.add_argument('--aprilTagPath', help="Path to .json file with AprilTag ids, sizes and poses", default=None)
     p.add_argument("--useRgb", help="Use OAK-D RGB camera", action="store_true")
     p.add_argument('--irDotBrightness', help='OAK-D Pro (W) IR laser projector brightness (mA), 0 - 1200', type=float, default=0)
     p.add_argument('--noFeatureTracker', help='Disable on-device feature tracking and depth map', action="store_true")
+    p.add_argument('--lowLatency', help='Enable low-latency configuration', action="store_true")
     p.add_argument('--load-map', help='Map file to load', default=None)
     p.add_argument('--save-map', help='Map file to save', default=None)
     p.add_argument("--useRectification", help="This parameter must be set if the stereo video inputs are not rectified", action="store_true")
@@ -33,14 +34,17 @@ if __name__ == '__main__':
     }
 
     def onMappingOutput(mapperOutput):
-        keyFrame = max(mapperOutput.updatedKeyFrames)
-        camPose = mapperOutput.map.keyFrames[keyFrame].frameSet.depthFrame.cameraPose.pose
-        table.putNumberArray("Pose", [-camPose.position.x, -camPose.position.y])
-        print(-camPose.position.x)
+        if len(mapperOutput.updatedKeyFrames) < 1:
+            return
+        frame = mapperOutput.map.keyFrames[max(mapperOutput.updatedKeyFrames)].frameSet.primaryFrame
+        camPose = frame.cameraPose.pose
+        table.putNumberArray("Pose", [camPose.position.x, camPose.position.y])
+        print(f'{camPose.position.x}, {camPose.position.y}')
         if mapperOutput.finalMap: print("Final map ready!")
 
     def onVioOutput(vioOutput):
-        table.putNumberArray("Pose", [-vioOutput.pose.position.x, -vioOutput.pose.position.y])
+        table.putNumberArray("Pose", [vioOutput.pose.position.x, vioOutput.pose.position.y])
+        print(f'{vioOutput.pose.position.x}, {vioOutput.pose.position.y}')
 
     def on_press(key):
         global break_prog
@@ -52,21 +56,22 @@ if __name__ == '__main__':
         pipeline = depthai.Pipeline()
         config = spectacularAI.depthai.Configuration()
         config.useFeatureTracker = not args.noFeatureTracker
-        config.aprilTagPath = args.aprilTagPath
 
-        config.useSlam = True
-        #config.lowLatency = True
-        config.useStereo = True
+        if args.aprilTagPath is not None:
+            config.aprilTagPath = args.aprilTagPath
         if args.load_map is not None:
             config.mapLoadPath = args.load_map
         if args.save_map is not None:
             config.mapSavePath = args.save_map
 
+        config.useSlam = True
+        config.lowLatency = args.lowLatency
+        config.useStereo = True
+
         config.useColor = args.useRgb
         config.internalParameters = configInternal
         if args.keyFrameCandidateInterval: config.keyframeCandidateEveryNthFrame = args.keyFrameCandidateInterval
         vioPipeline = spectacularAI.depthai.Pipeline(pipeline, config, onMappingOutput)
-
         
         with keyboard.Listener(on_press=on_press) as listener:
             with depthai.Device(pipeline) as device, \
@@ -76,11 +81,12 @@ if __name__ == '__main__':
                 while not break_prog:
                     onVioOutput(vio_session.waitForOutput())
                 
-    def quaternionHeading(q):
-        siny = +2.0 * (q.w * q.z + q.y * q.x);
-        cosy = +1.0 - 2.0 * (q.x * q.x + q.z * q.z);
-        heading = math.atan2(siny, cosy);
-        return heading
+    def quaternion_yaw(x, y, z, w):     
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw_z = math.atan2(t3, t4)
+     
+        return yaw_z
 
     thread = threading.Thread(target=captureLoop)
     thread.start()
