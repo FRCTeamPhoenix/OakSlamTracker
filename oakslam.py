@@ -33,6 +33,10 @@ if __name__ == '__main__':
     }
 
     def onMappingOutput(mapperOutput):
+        keyFrame = max(mapperOutput.updatedKeyFrames)
+        camPose = mapperOutput.map.keyFrames[keyFrame].frameSet.depthFrame.cameraPose.pose
+        table.putNumberArray("Pose", [-camPose.position.x, -camPose.position.y])
+        print(-camPose.position.x)
         if mapperOutput.finalMap: print("Final map ready!")
 
     def onVioOutput(vioOutput):
@@ -53,8 +57,8 @@ if __name__ == '__main__':
         config.useSlam = True
         #config.lowLatency = True
         config.useStereo = True
-        if args.map is not None:
-            config.mapLoadPath = args.map
+        if args.load_map is not None:
+            config.mapLoadPath = args.load_map
         if args.save_map is not None:
             config.mapSavePath = args.save_map
 
